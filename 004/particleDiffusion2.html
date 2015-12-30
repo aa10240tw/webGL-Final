@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <!-- saved from url=(0119)https://www.cs.unm.edu/~angel/BOOK/INTERACTIVE_COMPUTER_GRAPHICS/SIXTH_EDITION/CODE/WebGL/7E/10/particleDiffusion2.html -->
-<html><head>
+<html>
+<head>
 <meta http-equiv="Content-Type" content="text/html; charset=Big5">
 <script id="vertex-shader1" type="x-shader/x-vertex">
 
@@ -13,7 +14,6 @@ void main()
 {
     gl_Position = vPosition1;
     fTexCoord = vTexCoord;
-
 }
 </script>
 
@@ -64,17 +64,73 @@ main()
 }
 </script>
 
-<script>
-  window.onload = function(){
-    init();
-    main();
-  }
+
+<script id="xvertex-shader" type="x-shader/x-vertex">
+attribute vec4 vPosition;
+attribute vec4 vColor;
+attribute vec4 vNormal;
+attribute  vec2 vTexCoord;
+
+varying vec4 fColor;
+varying vec2 fTexCoord;
+
+uniform mat4 modelingMatrix;
+uniform mat4 viewingMatrix;
+uniform mat4 projectionMatrix;
+uniform vec4 lightPosition;
+uniform vec4 materialAmbient;
+uniform vec4 materialDiffuse;
+uniform vec4 materialSpecular;
+uniform float shininess;
+
+void main()
+{
+  vec4 eye = vec4(0.0, 0.0, -1.0, 1.0);  // The default eye position
+    vec4 L = normalize( lightPosition - vPosition ); // Light vector
+    vec4 N = normalize( vNormal );  // Normal vector
+  vec4 V = normalize( eye - vPosition );    // Eye vector.
+    vec4 H = normalize( L + V );  // Halfway vector in the modified Phong model
+
+
+    // Compute terms in the illumination equation
+    vec4 ambient = materialAmbient;
+
+    float Kd = max( dot(L, N), 0.0 );
+    vec4  diffuse = Kd * materialDiffuse;
+
+  float Ks = pow( max(dot(N, H), 0.0), shininess );
+  // HW3 hint: complete the next line to compute the specular component
+  // vec4 specular = ...
+  
+    fColor = (ambient + diffuse) * vColor;
+    fTexCoord = vTexCoord;
+    gl_Position = projectionMatrix * viewingMatrix * modelingMatrix * vPosition;
+}
 </script>
 
+<script id="xfragment-shader" type="x-shader/x-fragment">
+precision mediump float;
+varying vec4 fColor;  // Note that this will be interpolated between vertices.
+varying vec2 fTexCoord;
+
+uniform sampler2D texture;
+
+void main()
+{
+    gl_FragColor = fColor * texture2D( texture, fTexCoord );
+}
+</script>
+
+<script>
+  window.onload = function()
+  {
+    init();
+    main();
+  };
+</script>
 <script type="text/javascript" src="./particleDiffusion2_files/webgl-utils.js"></script>
 <script type="text/javascript" src="./particleDiffusion2_files/initShaders.js"></script>
 <script type="text/javascript" src="./particleDiffusion2_files/MV.js"></script>
-<script type="text/javascript" src="./particleDiffusion2_files/libs.js"></script>
 <script type="text/javascript" src="./particleDiffusion2_files/script.js"></script>
 <script type="text/javascript" src="./particleDiffusion2_files/particleDiffusion2.js"></script>
 
@@ -95,7 +151,7 @@ body{
 {
   z-index: 2;
   position:absolute;
-  margin:5vw auto;
+  margin:30vw;
   margin-top: 5vh;
 }
 
@@ -107,9 +163,9 @@ body{
     Oops ... your browser doesn't support the HTML5 canvas element
   </canvas>
 
-  <canvas id="xgl-canvas" width="600" height="600" >
+  <canvas id="xgl-canvas" width="500" height="500" >
     Oops ... your browser doesn't support the HTML5 canvas element
   </canvas>
 
-<video  id="bunny_video" width="320" height="240" controls src="b.mp4" autoplay='true' loop='true' style='display: none' ></video>
+<video  id="bunny_video" width="320" height="240" controls src="show.mp4" autoplay='true' loop='true' style='display: none' ></video>
 </body></html>

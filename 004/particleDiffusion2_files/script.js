@@ -1,213 +1,286 @@
-
-
-function main() 
+function main()
 {
-  var CANVAS=document.getElementById("xgl-canvas");
-  //CANVAS.width=window.innerWidth;
-  //CANVAS.height=window.innerHeight;
+  var canvas = document.getElementById("xgl-canvas");
+  var gl;
+  var xAxis = 0;
+  var yAxis = 1;
+  var zAxis = 2;
+  var deltaX;
+  var deltaY;
 
+  var axis = 0;
+  var theta = [ 0, 0, 0 ];
+  var eyePosition = [ 0, 0, 2 ];
 
-  /*========================= CAPTURE MOUSE EVENTS ========================= */
+  // event handlers for mouse input (borrowed from "Learning WebGL" lesson 11)
 
-  var AMORTIZATION=0.95;
-  var drag=false;
-  var old_x, old_y;
-  var dX=0, dY=0;
+  var mouseDown = false;
+  var lastMouseX = null;
+  var lastMouseY = null;
+  var amortization=0.95;
+  var moonRotationMatrix = mat4();
 
-  var mouseDown=function(e) {
-    drag=true;
-    old_x=e.pageX, old_y=e.pageY;
-    e.preventDefault();
-    return false;
-  };
-
-  var mouseUp=function(e){
-    drag=false;
-  };
-
-  var mouseMove=function(e) {
-    if (!drag) return false;
-    dX=(e.pageX-old_x)*Math.PI/CANVAS.width,
-      dY=(e.pageY-old_y)*Math.PI/CANVAS.height;
-    THETA+=dX;
-    PHI+=dY;
-    old_x=e.pageX, old_y=e.pageY;
-    e.preventDefault();
-  };
-
-  CANVAS.addEventListener("mousedown", mouseDown, false);
-  CANVAS.addEventListener("mouseup", mouseUp, false);
-  CANVAS.addEventListener("mouseout", mouseUp, false);
-  CANVAS.addEventListener("mousemove", mouseMove, false);
-
-  /*========================= GET WEBGL CONTEXT ========================= */
-  var GL;
-  try {
-    GL = CANVAS.getContext("experimental-webgl", {antialias: true});
-  } catch (e) {
-    alert("You are not webgl compatible :(") ;
-    return false;
+  function handleMouseDown(event) 
+  {
+    mouseDown = true;
+    lastMouseX = event.clientX;
+    lastMouseY = event.clientY;
   }
 
-  /*========================= SHADERS ========================= */
-  /*jshint multistr: true */
+  function handleMouseUp(event) 
+  {
+    mouseDown = false;
+  }
 
-  var shader_vertex_source="\n\
-attribute vec3 position;\n\
-uniform mat4 Pmatrix,Vmatrix,Mmatrix;\n\
-attribute vec2 uv;\n\
-varying vec2 vUV;\n\
-\n\
-\n\
-void main(void) {\n\
-gl_Position = Pmatrix*Vmatrix*Mmatrix*vec4(position, 1.);\n\
-vUV=uv;\n\
-}";
-
-  var shader_fragment_source="\n\
-precision mediump float;\n\
-uniform sampler2D samplerVideo;\n\
-varying vec2 vUV;\n\
-\n\
-\n\
-void main(void) {\n\
-gl_FragColor = texture2D(samplerVideo, vUV);\n\
-}";
-
-  var get_shader=function(source, type, typeString) {
-    var shader = GL.createShader(type);
-    GL.shaderSource(shader, source);
-    GL.compileShader(shader);
-    if (!GL.getShaderParameter(shader, GL.COMPILE_STATUS)) {
-      alert("ERROR IN "+typeString+ " SHADER : " + GL.getShaderInfoLog(shader));
-      return false;
+  function handleMouseMove(event) 
+  {
+    if (!mouseDown) 
+    {
+      return;
     }
-    return shader;
-  };
+    
+    var newX = event.clientX;
+    var newY = event.clientY;
+    var deltaX = newX - lastMouseX;
+    var newRotationMatrix = rotate(deltaX * amortization, 0, 1, 0);
 
-  var shader_vertex=get_shader(shader_vertex_source, GL.VERTEX_SHADER, "VERTEX");
-  var shader_fragment=get_shader(shader_fragment_source, GL.FRAGMENT_SHADER, "FRAGMENT");
+    var deltaY = newY - lastMouseY;
+    newRotationMatrix = mult(rotate(deltaY * amortization, 1, 0, 0), newRotationMatrix);
 
-  var SHADER_PROGRAM=GL.createProgram();
-  GL.attachShader(SHADER_PROGRAM, shader_vertex);
-  GL.attachShader(SHADER_PROGRAM, shader_fragment);
+    moonRotationMatrix = mult(newRotationMatrix, moonRotationMatrix);
 
-  GL.linkProgram(SHADER_PROGRAM);
+    lastMouseX = newX
+    lastMouseY = newY;
+  }
 
-  var _Pmatrix = GL.getUniformLocation(SHADER_PROGRAM, "Pmatrix");
-  var _Vmatrix = GL.getUniformLocation(SHADER_PROGRAM, "Vmatrix");
-  var _Mmatrix = GL.getUniformLocation(SHADER_PROGRAM, "Mmatrix");
-  var _samplerVideo = GL.getUniformLocation(SHADER_PROGRAM, "samplerVideo");
-  var _uv = GL.getAttribLocation(SHADER_PROGRAM, "uv");
-  var _position = GL.getAttribLocation(SHADER_PROGRAM, "position");
+  // event handlers for button clicks
 
-  GL.enableVertexAttribArray(_uv);
-  GL.enableVertexAttribArray(_position);
 
-  GL.useProgram(SHADER_PROGRAM);
-  GL.uniform1i(_samplerVideo, 0);
+  // ModelView and Projection matrices
+  var modelingLoc, viewingLoc, projectionLoc;
+  var modeling, viewing, projection;
+  
+  var numVertices  = 36;
 
-  /*========================= THE QUAD ========================= */
-  //POINTS :
-  var quad_vertex=[
-    -1,-1,0,    
-    0,0,
-    1,-1,0,     
-    1,0,
-    1, 1,0, 
-    1,1,
-    -1, 1,0,
-    0,1
+  var pointsArray = [];
+  var colorsArray = [];
+  var normalsArray = [];
+  var texCoordsArray = [];
+
+  var texture;
+  var texCoord = [
+    vec2(0, 0),
+    vec2(0, 1),
+    vec2(1, 1),
+    vec2(1, 0)
   ];
 
-  var QUAD_VERTEX= GL.createBuffer ();
-  GL.bindBuffer(GL.ARRAY_BUFFER, QUAD_VERTEX);
-  GL.bufferData(GL.ARRAY_BUFFER,
-                new Float32Array(quad_vertex),
-    GL.STATIC_DRAW);
 
-  //FACES :
-  var quad_faces = [0,1,2,  0,2,3];
+  var vertices = [
+    vec4( -0.5, -0.5,  0.05, 1 ),
+    vec4( -0.5,  0.5,  0.05, 1 ),
+    vec4(  0.5,  0.5,  0.05, 1 ),
+    vec4(  0.5, -0.5,  0.05, 1 ),
+    vec4( -0.5, -0.5, -0.05, 1 ),
+    vec4( -0.5,  0.5, -0.05, 1 ),
+    vec4(  0.5,  0.5, -0.05, 1 ),
+    vec4(  0.5, -0.5, -0.05, 1 )
+  ];
 
-  var QUAD_FACES= GL.createBuffer ();
-  GL.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, QUAD_FACES);
-  GL.bufferData(GL.ELEMENT_ARRAY_BUFFER,
-                new Uint16Array(quad_faces),
-    GL.STATIC_DRAW);
+  // Using off-white cube for testing
+  var vertexColors = [
+    vec4( 1.0, 1.0, 1.0, 1.0 ),  
+    vec4( 1.0, 1.0, 1.0, 1.0 ),  
+    vec4( 1.0, 1.0, 1.0, 1.0 ),  
+    vec4( 1.0, 1.0, 1.0, 1.0 ),  
+    vec4( 1.0, 1.0, 1.0, 1.0 ),  
+    vec4( 1.0, 1.0, 1.0, 1.0 ),  
+    vec4( 1.0, 1.0, 1.0, 1.0 ),  
+    vec4( 1.0, 1.0, 1.0, 1.0 )
+  ];
 
-  /*========================= MATRIX ========================= */
+  var lightPosition = vec4( 0.0, 10.0, 20.0, 1.0 );
 
-  var PROJMATRIX=LIBS.get_projection(20, CANVAS.width/CANVAS.height, 0.1, 10);
-  var MOVEMATRIX=LIBS.get_I4();
-  var VIEWMATRIX=LIBS.get_I4();
+  var materialAmbient = vec4( 0.25, 0.25, 0.25, 1.0 );
+  var materialDiffuse = vec4( 0.8, 0.8, 0.8, 1.0);
+  var materialSpecular = vec4( 10.0, 10.0, 1.0, 1.0 );
+  var materialShininess = 12.0;
 
-  LIBS.translateZ(VIEWMATRIX, -6);
-  var THETA=0,
-      PHI=0;
+  function quad(a, b, c, d) 
+  {
+     var t1 = subtract(vertices[b], vertices[a]);
+     var t2 = subtract(vertices[c], vertices[b]);
+     var normal = cross(t1, t2);  // cross returns vec3
+     var normal = vec4(normal);
+     normal = normalize(normal);
 
+    pointsArray.push(vertices[a]); 
+    colorsArray.push(vertexColors[a]);
+    normalsArray.push(normal); 
+    texCoordsArray.push(texCoord[0]);
+    pointsArray.push(vertices[b]); 
+    colorsArray.push(vertexColors[b]);
+    normalsArray.push(normal); 
+    texCoordsArray.push(texCoord[1]);
+    pointsArray.push(vertices[c]); 
+    colorsArray.push(vertexColors[c]);
+    normalsArray.push(normal);   
+    texCoordsArray.push(texCoord[2]);
 
-  /*========================= THE VIDEO TEXTURE ========================= */
-  var video=document.getElementById("bunny_video");
+    pointsArray.push(vertices[a]);  
+    colorsArray.push(vertexColors[a]);
+    normalsArray.push(normal); 
+    texCoordsArray.push(texCoord[0]);
+    pointsArray.push(vertices[c]); 
+    colorsArray.push(vertexColors[c]);
+    normalsArray.push(normal); 
+    texCoordsArray.push(texCoord[2]);
+    pointsArray.push(vertices[d]); 
+    colorsArray.push(vertexColors[d]);
+    normalsArray.push(normal);
+    texCoordsArray.push(texCoord[3]);
+  }
 
-  var videoTexture=GL.createTexture();
-  GL.pixelStorei(GL.UNPACK_FLIP_Y_WEBGL, true);
-  GL.bindTexture(GL.TEXTURE_2D, videoTexture);
-  GL.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_MAG_FILTER, GL.LINEAR);
-  GL.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_MIN_FILTER, GL.LINEAR);
+  function colorCube()
+  {
+    quad( 1, 0, 3, 2 );
+    quad( 2, 3, 7, 6 );
+    quad( 3, 0, 4, 7 );
+    quad( 6, 5, 1, 2 );
+    quad( 4, 5, 6, 7 );
+    quad( 5, 4, 0, 1 );
+  }
+  
+  console.log(canvas);
+  
+  gl = WebGLUtils.setupWebGL( canvas );
+  if ( !gl )
+  { 
+    alert( "WebGL isn't available" ); 
+  }
+  //
+  //  Configure WebGL
+  //
+  gl.viewport( 0, 0, canvas.width, canvas.height );
+  gl.clearColor( 1.0, 1.0, 1.0, 1.0 );
 
+  //  Load shaders and initialize attribute buffers
 
-  GL.texParameteri( GL.TEXTURE_2D, GL.TEXTURE_WRAP_S, GL.CLAMP_TO_EDGE );
-  GL.texParameteri( GL.TEXTURE_2D, GL.TEXTURE_WRAP_T, GL.CLAMP_TO_EDGE );
+  var program = initShaders( gl, "xvertex-shader", "xfragment-shader" );
+  gl.useProgram( program );
 
-  var refresh_texture=function() {
-    GL.bindTexture(GL.TEXTURE_2D, videoTexture);
-    GL.texImage2D(GL.TEXTURE_2D, 0, GL.RGBA, GL.RGBA, GL.UNSIGNED_BYTE, video);
+  // Generate pointsArray[], colorsArray[] and normalsArray[] from vertices[] and vertexColors[].
+  // We don't use indices and ELEMENT_ARRAY_BUFFER (as in previous example)
+  // because we need to assign different face normals to shared vertices.
+  colorCube();
+
+  // vertex array attribute buffer
+
+  var vBuffer = gl.createBuffer();
+  gl.bindBuffer( gl.ARRAY_BUFFER, vBuffer );
+  gl.bufferData( gl.ARRAY_BUFFER, flatten(pointsArray), gl.STATIC_DRAW );
+
+  var vPosition = gl.getAttribLocation( program, "vPosition" );
+  gl.vertexAttribPointer( vPosition, 4, gl.FLOAT, false, 0, 0 );
+  gl.enableVertexAttribArray( vPosition );
+
+  // color array atrribute buffer
+
+  var cBuffer = gl.createBuffer();
+  gl.bindBuffer( gl.ARRAY_BUFFER, cBuffer );
+  gl.bufferData( gl.ARRAY_BUFFER, flatten(colorsArray), gl.STATIC_DRAW );
+
+  var vColor = gl.getAttribLocation( program, "vColor" );
+  gl.vertexAttribPointer( vColor, 4, gl.FLOAT, false, 0, 0 );
+  gl.enableVertexAttribArray( vColor );
+
+  // normal array atrribute buffer
+
+  var nBuffer = gl.createBuffer();
+  gl.bindBuffer( gl.ARRAY_BUFFER, nBuffer );
+  gl.bufferData( gl.ARRAY_BUFFER, flatten(normalsArray), gl.STATIC_DRAW );
+
+  var vNormal = gl.getAttribLocation( program, "vNormal" );
+  gl.vertexAttribPointer( vNormal, 4, gl.FLOAT, false, 0, 0 );
+  gl.enableVertexAttribArray( vNormal );
+
+  var tBuffer = gl.createBuffer();
+  gl.bindBuffer( gl.ARRAY_BUFFER, tBuffer );
+  gl.bufferData( gl.ARRAY_BUFFER, flatten(texCoordsArray), gl.STATIC_DRAW );
+    
+  var vTexCoord = gl.getAttribLocation( program, "vTexCoord" );
+  gl.vertexAttribPointer( vTexCoord, 2, gl.FLOAT, false, 0, 0 );
+  gl.enableVertexAttribArray( vTexCoord );
+
+  var video = document.getElementById("bunny_video");
+
+  var videoTexture = gl.createTexture();
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+  gl.bindTexture(gl.TEXTURE_2D, videoTexture);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri( gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE );
+  gl.texParameteri( gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE );
+  var refresh_texture = function() 
+  {
+    gl.bindTexture(gl.TEXTURE_2D, videoTexture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video);
   };
+  gl.uniform1i(gl.getUniformLocation(program, "texture"), 0);
 
+  // uniform variables in shaders
+  modelingLoc   = gl.getUniformLocation(program, "modelingMatrix"); 
+  viewingLoc    = gl.getUniformLocation(program, "viewingMatrix"); 
+  projectionLoc = gl.getUniformLocation(program, "projectionMatrix"); 
 
-  /*========================= DRAWING ========================= */
-  //set WebGL states
-  GL.enable(GL.DEPTH_TEST);
-  GL.clearDepth(1.0);
+  gl.uniform4fv( gl.getUniformLocation(program, "lightPosition"), 
+     flatten(lightPosition) );
+  gl.uniform4fv( gl.getUniformLocation(program, "materialAmbient"),
+     flatten(materialAmbient));
+  gl.uniform4fv( gl.getUniformLocation(program, "materialDiffuse"),
+     flatten(materialDiffuse) );
+  gl.uniform4fv( gl.getUniformLocation(program, "materialSpecular"), 
+     flatten(materialSpecular) );        
+  gl.uniform1f( gl.getUniformLocation(program, "shininess"), materialShininess);
 
-  GL.clearColor(0.2, 0.2, 0.0,0.0); //#2f83e0 in HTML notation
-
-  //there is only 1 VBO -> we can put it out of the render loop
-  GL.bindBuffer(GL.ARRAY_BUFFER, QUAD_VERTEX);
-  GL.vertexAttribPointer(_position, 3, GL.FLOAT, false,4*(3+2),0) ;
-  GL.vertexAttribPointer(_uv, 2, GL.FLOAT, false,4*(3+2),3*4) ;
-
-  GL.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, QUAD_FACES);
-
+  //event listeners for buttons 
+  
+  // event handlers for mouse input (borrowed from "Learning WebGL" lesson 11)
+  canvas.onmousedown = handleMouseDown;
+  document.onmouseup = handleMouseUp;
+  document.onmousemove = handleMouseMove;
   var time_old=0, time_video=0;
+  
+  render(0);
+  
+  function render(time) 
+  {
+      var dT=(time-time_old)/1000;
+      time_old=time;
 
-  //the render loop :
-  var animate=function(time) {
-    var dt=(time-time_old)/1000;
-    time_old=time;
+      modeling = moonRotationMatrix;
 
-    if (!drag) {
-      dX*=AMORTIZATION, dY*=AMORTIZATION;
-      THETA+=dX, PHI+=dY;
-    }
-    LIBS.set_I4(MOVEMATRIX);
-    LIBS.rotateY(MOVEMATRIX, THETA);
-    LIBS.rotateX(MOVEMATRIX, PHI);
+      viewing = lookAt(eyePosition, [0,0,0], [0,1,0]);
 
-    GL.viewport(0.0, 0.0, CANVAS.width, CANVAS.height);
-    GL.uniformMatrix4fv(_Pmatrix, false, PROJMATRIX);
-    GL.uniformMatrix4fv(_Vmatrix, false, VIEWMATRIX);
-    GL.uniformMatrix4fv(_Mmatrix, false, MOVEMATRIX);
+      projection = perspective(40, 1.0, 1.0, 3.0);
 
-    if (video.currentTime>0 && video.currentTime!==time_video) {
-      time_video=video.currentTime;
-      refresh_texture();
-    }
+      gl.enable(gl.DEPTH_TEST);
 
-    GL.drawElements(GL.TRIANGLES, 6, GL.UNSIGNED_SHORT, 0);
+      gl.uniformMatrix4fv( modelingLoc,   0, flatten(modeling) );
+      gl.uniformMatrix4fv( viewingLoc,    0, flatten(viewing) );
+      gl.uniformMatrix4fv( projectionLoc, 0, flatten(projection) );
 
-    GL.flush();
-    window.requestAnimationFrame(animate);
-  };
-  animate(0);
-};
+      if (video.currentTime>0 && video.currentTime!==time_video) 
+      {
+        time_video=video.currentTime;
+        refresh_texture();
+      }
+
+      gl.drawArrays( gl.TRIANGLES, 0, numVertices );
+
+      gl.flush();
+
+      requestAnimFrame( render );
+  }
+
+}
