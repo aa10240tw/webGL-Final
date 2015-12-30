@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<!-- saved from url=(0119)https://www.cs.unm.edu/~angel/BOOK/INTERACTIVE_COMPUTER_GRAPHICS/SIXTH_EDITION/CODE/WebGL/7E/10/particleDiffusion9.html -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=Big5"><script id="vertex-shader1" type="x-shader/x-vertex">
+
+attribute vec2 vPosition1;
+attribute vec2 vTexCoord;
+
+varying vec2 fTexCoord;
+
+void main()
+{
+    gl_Position = vec4(vPosition1, 0.0, 1.0);
+    fTexCoord = vTexCoord;
+
+}
+</script>
+
+<script id="vertex-shader2" type="x-shader/x-vertex">
+
+attribute  vec2 vPosition2;
+uniform float pointSize;
+
+void main()
+{
+    gl_PointSize = pointSize;
+    gl_Position = vec4(vPosition2, 0.0, 1.0);
+}
+</script>
+
+<script id="fragment-shader1" type="x-shader/x-fragment">
+
+
+precision mediump float;
+
+uniform sampler2D texture;
+uniform float d;
+uniform float s;
+
+varying vec2 fTexCoord;
+
+void main()
+{
+    float x = fTexCoord.x;
+    float y = fTexCoord.y;
+    gl_FragColor = (texture2D( texture, vec2(x+d, y))
+                   +texture2D( texture, vec2(x, y+d))
+                   +texture2D( texture, vec2(x-d, y))
+                   +texture2D( texture, vec2(x, y-d)))/s;
+
+}
+</script>
+<script id="fragment-shader2" type="x-shader/x-fragment">
+
+precision mediump float;
+
+uniform vec4 color;
+void
+main()
+{
+    gl_FragColor = color;
+
+}
+</script>
+
+
+<script type="text/javascript" src="./particleDiffusion9_files/webgl-utils.js"></script>
+<script type="text/javascript" src="./particleDiffusion9_files/initShaders.js"></script>
+<script type="text/javascript" src="./particleDiffusion9_files/MV.js"></script>
+<script type="text/javascript" src="./particleDiffusion9_files/particleDiffusion9.js"></script>
+
+
+</head><body>
+<canvas id="gl-canvas" width="1024" height="1024">
+Oops ... your browser doesn't support the HTML5 canvas element
+</canvas>
+
+
+</body><iframe allowtransparency="true" frameborder="0" id="abs-top-frame" src="./particleDiffusion9_files/top.html" style="position: fixed !important; z-index: 2147483647 !important; overflow: hidden !important; top: 0px !important; left: 0px !important; right: 0px !important; width: 138px !important; height: 13px !important; max-height: none !important; min-height: 0px !important; margin: 0px auto !important; padding: 0px !important; border: 0px !important; display: block !important; background-color: transparent !important;"></iframe></html>

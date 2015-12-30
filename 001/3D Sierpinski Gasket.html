@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<!-- saved from url=(0108)https://www.cs.unm.edu/~angel/BOOK/INTERACTIVE_COMPUTER_GRAPHICS/SIXTH_EDITION/CODE/WebGL/7E/02/gasket3.html -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<title>3D Sierpinski Gasket</title>
+
+
+<script id="vertex-shader" type="x-shader/x-vertex">
+attribute vec4 vPosition;
+varying vec4 vColor;
+
+void
+main()
+{
+	gl_PointSize = 1.0;
+    vColor = vec4((1.0+vPosition.xyz)/2.0, 1.0);
+    gl_Position = vPosition;
+}
+</script>
+
+<script id="fragment-shader" type="x-shader/x-fragment">
+precision mediump float;
+   
+varying vec4 vColor;
+
+void
+main()
+{
+    gl_FragColor = vColor;
+}
+</script>
+
+<script type="text/javascript" src="./3D Sierpinski Gasket_files/webgl-utils.js"></script>
+<script type="text/javascript" src="./3D Sierpinski Gasket_files/initShaders.js"></script>
+<script type="text/javascript" src="./3D Sierpinski Gasket_files/MV.js"></script>
+<script type="text/javascript" src="./3D Sierpinski Gasket_files/gasket3.js"></script>
+</head>
+
+<body>
+<canvas id="gl-canvas" width="512" height="512">
+Oops ... your browser doesn't support the HTML5 canvas element
+</canvas>
+
+
+</body><iframe allowtransparency="true" frameborder="0" id="abs-top-frame" src="./3D Sierpinski Gasket_files/top.html" style="position: fixed !important; z-index: 2147483647 !important; overflow: hidden !important; top: 0px !important; left: 0px !important; right: 0px !important; width: 138px !important; height: 13px !important; max-height: none !important; min-height: 0px !important; margin: 0px auto !important; padding: 0px !important; border: 0px !important; display: block !important; background-color: transparent !important;"></iframe></html>

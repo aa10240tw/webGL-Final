@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<!-- saved from url=(0119)https://www.cs.unm.edu/~angel/BOOK/INTERACTIVE_COMPUTER_GRAPHICS/SIXTH_EDITION/CODE/WebGL/7E/10/particleDiffusion2.html -->
+<html><head>
+<meta http-equiv="Content-Type" content="text/html; charset=Big5">
+<script id="vertex-shader1" type="x-shader/x-vertex">
+
+attribute vec4 vPosition1;
+attribute vec2 vTexCoord;
+
+varying vec2 fTexCoord;
+
+void main()
+{
+    gl_Position = vPosition1;
+    fTexCoord = vTexCoord;
+
+}
+</script>
+
+<script id="vertex-shader2" type="x-shader/x-vertex">
+
+attribute  vec4 vPosition2;
+uniform float pointSize;
+
+void main() 
+{
+    gl_PointSize = pointSize;
+    gl_Position = vPosition2;
+} 
+</script>
+
+<script id="fragment-shader1" type="x-shader/x-fragment">
+
+
+precision mediump float;
+
+uniform sampler2D texture;
+uniform float d;
+uniform float s;
+
+varying vec2 fTexCoord;
+
+void main() 
+{ 
+    float x = fTexCoord.x;
+    float y = fTexCoord.y;
+    gl_FragColor = (texture2D( texture, vec2(x+d, y))
+                   +texture2D( texture, vec2(x, y+d))
+                   +texture2D( texture, vec2(x-d, y))
+                   +texture2D( texture, vec2(x, y-d)))/s;
+                 
+} 
+</script>
+<script id="fragment-shader2" type="x-shader/x-fragment">
+
+precision mediump float;
+
+uniform vec4 color;
+void
+main()
+{
+    gl_FragColor = color;
+
+}
+</script>
+
+<script>
+  window.onload = function(){
+    init();
+    main();
+  }
+</script>
+
+<script type="text/javascript" src="./particleDiffusion2_files/webgl-utils.js"></script>
+<script type="text/javascript" src="./particleDiffusion2_files/initShaders.js"></script>
+<script type="text/javascript" src="./particleDiffusion2_files/MV.js"></script>
+<script type="text/javascript" src="./particleDiffusion2_files/libs.js"></script>
+<script type="text/javascript" src="./particleDiffusion2_files/script.js"></script>
+<script type="text/javascript" src="./particleDiffusion2_files/particleDiffusion2.js"></script>
+
+<style>
+body{
+  margin:0 auto;
+  width:100vw;
+  height:100vh;
+}
+
+#gl-canvas
+{
+  z-index: 1;
+  position:absolute;
+  margin:0 auto;
+}
+#xgl-canvas
+{
+  z-index: 2;
+  position:absolute;
+  margin:5vw auto;
+  margin-top: 5vh;
+}
+
+</style>
+
+</head>
+<body >
+  <canvas id="gl-canvas" width="2048" height="700" >
+    Oops ... your browser doesn't support the HTML5 canvas element
+  </canvas>
+
+  <canvas id="xgl-canvas" width="600" height="600" >
+    Oops ... your browser doesn't support the HTML5 canvas element
+  </canvas>
+
+<video  id="bunny_video" width="320" height="240" controls src="b.mp4" autoplay='true' loop='true' style='display: none' ></video>
+</body></html>

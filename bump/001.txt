@@ -1,0 +1,7 @@
+vertex shader
+一次處理單一vertex
+頂點資料
+36*4 ?? 當vertex傳
+fgragment shader
+矩陣傳
+
